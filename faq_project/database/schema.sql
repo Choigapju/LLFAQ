@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS faq(
+    id INTEGER PRIMARY KEY,
+    keywords TEXT NOT NULL,
+    question TEXT NOT NULL,
+    answer TEXT NOT NULL
+);
