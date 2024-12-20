@@ -29,3 +29,7 @@ class SearchResponse(BaseModel):
     total: int
     available_keywords: List[str]
     results: List[FAQ]
+    
+# 추천 검색어 3개
+class TopKeywordsResponse(BaseModel):
+    top_keywords: List[str]

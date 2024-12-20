@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import List, Optional, Dict, Any, Set
 from pydantic import BaseModel
 from database.db_manager import DatabaseManager
-from .models import FAQ, FAQCreate, SearchResponse, PopularKeywordsResponse, KeywordCount
+from .models import FAQ, FAQCreate, SearchResponse, PopularKeywordsResponse, KeywordCount, TopKeywordsResponse
 from konlpy.tag import Okt
 from collections import Counter
 
@@ -63,6 +63,30 @@ class HTTPValidationError(BaseModel):
 
 router = APIRouter()
 db = DatabaseManager()
+
+@router.get(
+    "/faqs/top-keywords/",
+    response_model=TopKeywordsResponse,
+    tags=["faqs"]
+)
+async def get_top_keywords():
+    """가장 많이 사용된 키워드 3개를 반환합니다."""
+    try:
+        db.cursor.execute("""
+            SELECT keywords
+            FROM faq
+            WHERE keywords IS NOT NULL AND keywords != ''
+            GROUP BY keywords
+            ORDER BY COUNT (*) DESC
+            LIMIT 3
+        """)
+        top_keywords = [row[0] for row in db.cursor.fetchall()]
+        
+        return TopKeywordsResponse(
+            top_keywords=top_keywords
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get(
     "/faqs/smart-search/",
