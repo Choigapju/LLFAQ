@@ -2,9 +2,19 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import List, Optional, Dict, Any, Set
 from pydantic import BaseModel
 from database.db_manager import DatabaseManager
-from .models import FAQ, FAQCreate, SearchResponse, PopularKeywordsResponse, KeywordCount
+from .models import (
+    FAQ, 
+    FAQCreate, 
+    SearchResponse, 
+    PopularKeywordsResponse, 
+    KeywordCount,
+    TopKeywordsResponse,
+    Notice,
+    NoticeCreate
+)
 from konlpy.tag import Okt
 from collections import Counter
+from datetime import datetime, timedelta
 
 class SmartKeywordExtractor:
     def __init__(self):
@@ -63,6 +73,96 @@ class HTTPValidationError(BaseModel):
 
 router = APIRouter()
 db = DatabaseManager()
+
+@router.get(
+    "/faqs/top-keywords/",
+    response_model=TopKeywordsResponse,
+    tags=["faqs"]
+)
+async def get_top_keywords():
+    """가장 많이 사용된 키워드 3개를 반환합니다."""
+    try:
+        db.cursor.execute("""
+            SELECT keywords
+            FROM faq
+            WHERE keywords IS NOT NULL AND keywords != ''
+            GROUP BY keywords
+            ORDER BY COUNT (*) DESC
+            LIMIT 3
+        """)
+        top_keywords = [row[0] for row in db.cursor.fetchall()]
+        
+        return TopKeywordsResponse(
+            top_keywords=top_keywords
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/notices/", response_model=List[Notice])
+async def get_notices(
+    skip: int = 0,
+    limit: int = 10,
+    search: Optional[str] = None
+):
+    """공지사항 목록을 조회합니다."""
+    try:
+        query = "SELECT * FROM notices"
+        params = []
+        
+        if search:
+            query += " WHERE title LIKE ? OR content LIKE ?"
+            params.extend([f'%{search}%', f'%{search}%'])
+        
+        query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+        params.extend([limit, skip])
+        
+        db.cursor.execute(query, params)
+        results = db.cursor.fetchall()
+        
+        # 2주 이내 게시물 NEW 표시
+        two_weeks_ago = datetime.now() - timedelta(weeks=2)
+        
+        notices = []
+        for row in results:
+            created_at = datetime.strptime(row[4], '%Y-%m-%d %H:%M:%S')
+            updated_at = datetime.strptime(row[5], '%Y-%m-%d %H:%M:%S')
+            
+            notice = Notice(
+                id=row[0],
+                title=row[1],
+                content=row[2],
+                is_new=(created_at > two_weeks_ago),
+                created_at=created_at,
+                updated_at=updated_at
+            )
+            notices.append(notice)
+            
+        return notices
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/notices/", response_model=Notice)
+async def create_notice(notice: NoticeCreate):
+    try:
+        db.cursor.execute("""
+            INSERT INTO notices (title, content)
+            VALUES (?, ?)
+            RETURNING *
+        """, (notice.title, notice.content))
+        db.commit()
+        result = db.cursor.fetchone()
+        
+        return Notice(
+            id=result[0],
+            title=result[1],
+            content=result[2],
+            is_new=True,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get(
     "/faqs/smart-search/",
