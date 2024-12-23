@@ -4,5 +4,3 @@ pydantic==2.5.3
 python-multipart==0.0.6
 sqlalchemy==2.0.25
 gunicorn==21.2.0
-pip uninstall konlpy
-pip uninstall JPype1
