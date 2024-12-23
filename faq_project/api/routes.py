@@ -170,17 +170,20 @@ async def create_notice(notice: NoticeCreate):
     try:
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
+        # 데이터 삽입
         db.cursor.execute("""
             INSERT INTO notices (title, content, created_at, updated_at)
             VALUES (?, ?, ?, ?)
         """, (notice.title, notice.content, current_time, current_time))
+        
+        # 삽입된 ID 가져오기
+        notice_id = db.cursor.lastrowid
+        
+        # 변경사항 저장
         db.commit()
         
-        # 마지막으로 삽입된 row의 id 가져오기
-        last_id = db.cursor.lastrowid
-        
         # 삽입된 데이터 조회
-        db.cursor.execute("SELECT * FROM notices WHERE id = ?", (last_id,))
+        db.cursor.execute("SELECT * FROM notices WHERE id = ?", (notice_id,))
         result = db.cursor.fetchone()
         
         if result:
@@ -196,6 +199,7 @@ async def create_notice(notice: NoticeCreate):
             raise HTTPException(status_code=500, detail="Failed to create notice")
             
     except Exception as e:
+        db.rollback()  # 오류 발생 시 롤백
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get(
