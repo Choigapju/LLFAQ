@@ -16,39 +16,37 @@ from collections import Counter
 from datetime import datetime, timedelta
 import sqlite3
 
-# 전역 상수로 키워드 매핑 정의
+# 키워드 매핑 정의
 KEYWORD_MAPPINGS = {
-    '병원': ['병결', '공결'],
-    '공결': ['공결', '출결', '공결신청건'],
+    '출결': ['출결'],
+    '공결': ['공결'],
     '병결': ['병결', '출결'],
     '결석': ['출결', '공결', '병결'],
     '지각': ['출결', '지각'],
     'QR': ['QR', '출결'],
-    '훈련': ['훈련장려금'],
+    '훈련장려금': ['훈련장려금'],
     '장려금': ['훈련장려금'],
     '면접': ['증빙서류', '면접'],
-    '단위': ['훈련장려금'],
-    '기간': ['훈련장려금', '출결'],
-    '신청': ['공결', '훈련장려금'],
+    '단위기간': ['훈련장려금'],
     '수당': ['훈련장려금'],
     '지원금': ['훈련장려금'],
     '출석': ['출결', 'QR'],
-    '체크': ['출결', 'QR'],
-    '인정': ['출결', '공결'],
+    '퇴실': ['출결', 'QR'],
+    '출석체크': ['출결', 'QR'],
+    '인정': ['출결', '공결', '병결'],
     '휴가': ['공결', '출결'],
-    '외출': ['출결'],
-    '조퇴': ['출결'],
+    '외출': ['출결', '외출'],
+    '조퇴': ['출결', '조퇴'],
     '증명': ['증빙서류'],
     '서류': ['증빙서류'],
     '디스코드': ['디스코드'],
     '줌': ['줌', 'zoom', 'ZOOM'],
     '화상': ['줌', '디스코드'],
-    '온라인': ['줌', '디스코드', 'LMS'],
-    '수업': ['출결', 'LMS', '줌', 'zoom', 'ZOOM'],
+    '온라인': ['줌', 'zoom', 'ZOOM', '디스코드', 'LMS'],
+    '수업': ['출결', 'LMS'],
     'VOD': ['LMS', 'VOD'],
     '영상': ['LMS', 'VOD'],
-    '강의': ['LMS', 'VOD'],
-    '출결': ['출결'],
+    '강의': ['LMS', 'VOD', '출결']
 }
 
 def normalize_keyword(keyword: str) -> str:
@@ -60,13 +58,23 @@ def normalize_keyword(keyword: str) -> str:
     return normalized
 
 class SimpleKeywordExtractor:
+    def __init__(self):
+        """키워드 매핑을 초기화합니다."""
+        self.keyword_mappings = KEYWORD_MAPPINGS
+    
     def extract_keywords(self, text: str, available_keywords: List[str]) -> Set[str]:
+        """
+        주어진 텍스트에서 키워드를 추출합니다.
+        텍스트를 정규화하여 처리합니다.
+        """
         extracted_keywords = set()
         words = text.split()
         for word in words:
+            # 각 단어를 정규화하여 검색
             normalized_word = normalize_keyword(word)
             if normalized_word in self.keyword_mappings:
                 extracted_keywords.update(self.keyword_mappings[normalized_word])
+        
         return set(kw for kw in extracted_keywords if any(ak in kw for ak in available_keywords))
     
 # (.)온점 기준 줄바꿈
