@@ -20,7 +20,6 @@ import sqlite3
 KEYWORD_MAPPINGS = {
     '병원': ['병결', '공결'],
     '공결': ['공결', '출결', '공결신청건'],
-    '공결신청건': ['공결', '공결신청건'],
     '병결': ['병결', '출결'],
     '결석': ['출결', '공결', '병결'],
     '지각': ['출결', '지각'],
@@ -45,42 +44,29 @@ KEYWORD_MAPPINGS = {
     '줌': ['줌', 'zoom', 'ZOOM'],
     '화상': ['줌', '디스코드'],
     '온라인': ['줌', '디스코드', 'LMS'],
-    '수업': ['출결', 'LMS'],
+    '수업': ['출결', 'LMS', '줌', 'zoom', 'ZOOM'],
     'VOD': ['LMS', 'VOD'],
     '영상': ['LMS', 'VOD'],
-    '강의': ['LMS', 'VOD', '출결'],
-    '출결': ['출결', '출결 관련'],
-    '출결 관련': ['출결']
+    '강의': ['LMS', 'VOD'],
+    '출결': ['출결'],
 }
 
+def normalize_keyword(keyword: str) -> str:
+    """검색 키워드를 정규화합니다."""
+    # 공백 제거 및 관련/건 등의 접미사 제거
+    normalized = keyword.replace(' ', '')
+    normalized = normalized.replace('관련', '')
+    normalized = normalized.replace('신청건', '')
+    return normalized
+
 class SimpleKeywordExtractor:
-    def __init__(self):
-        """
-        키워드 매핑을 초기화합니다.
-        전역 상수로 정의된 KEYWORD_MAPPINGS를 사용합니다.
-        """
-        self.keyword_mappings = KEYWORD_MAPPINGS
-    
     def extract_keywords(self, text: str, available_keywords: List[str]) -> Set[str]:
-        """
-        주어진 텍스트에서 키워드를 추출합니다.
-
-        Args:
-            text (str): 검색할 텍스트
-            available_keywords (List[str]): 사용 가능한 키워드 목록
-
-        Returns:
-            Set[str]: 추출된 키워드 집합
-        """
         extracted_keywords = set()
-        
-        # 텍스트를 단어로 분리하여 각 단어에 대해 매핑된 키워드 찾기
         words = text.split()
         for word in words:
-            if word in self.keyword_mappings:
-                extracted_keywords.update(self.keyword_mappings[word])
-        
-        # 실제 존재하는 키워드만 필터링하여 반환
+            normalized_word = normalize_keyword(word)
+            if normalized_word in self.keyword_mappings:
+                extracted_keywords.update(self.keyword_mappings[normalized_word])
         return set(kw for kw in extracted_keywords if any(ak in kw for ak in available_keywords))
     
 # (.)온점 기준 줄바꿈
