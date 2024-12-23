@@ -12,14 +12,11 @@ from .models import (
     Notice,
     NoticeCreate
 )
-from konlpy.tag import Okt
 from collections import Counter
 from datetime import datetime, timedelta
 
-class SmartKeywordExtractor:
+class SimpleKeywordExtractor:
     def __init__(self):
-        self.okt = Okt()
-        # FAQ 키워드 사전
         self.keyword_mappings = {
             '병원': ['병결', '공결'],
             '공결': ['공결', '출결'],
@@ -29,7 +26,7 @@ class SmartKeywordExtractor:
             'QR': ['QR', '출결'],
             '훈련': ['훈련장려금'],
             '장려금': ['훈련장려금'],
-            '면접': ['증빙서류, 면접'],
+            '면접': ['증빙서류', '면접'],
             '단위': ['훈련장려금'],
             '기간': ['훈련장려금', '출결'],
             '신청': ['공결', '훈련장려금'],
@@ -48,17 +45,19 @@ class SmartKeywordExtractor:
             '화상': ['줌', '디스코드'],
             '온라인': ['줌', '디스코드', 'LMS'],
             '수업': ['출결', 'LMS'],
-            'VOD': ['LMS, VOD'],
-            '영상': ['LMS, VOD'],
-            '강의': ['LMS, VOD', '출결'],
+            'VOD': ['LMS', 'VOD'],
+            '영상': ['LMS', 'VOD'],
+            '강의': ['LMS', 'VOD', '출결']
         }
     
     def extract_keywords(self, text: str, available_keywords: List[str]) -> Set[str]:
-        morphs = self.okt.nouns(text)
+        words = text.split()
         extracted_keywords = set()
-        for morph in morphs:
-            if morph in self.keyword_mappings:
-                extracted_keywords.update(self.keyword_mappings[morph])
+        
+        for word in words:
+            if word in self.keyword_mappings:
+                extracted_keywords.update(self.keyword_mappings[word])
+        
         return set(kw for kw in extracted_keywords if any(ak in kw for ak in available_keywords))
     
 
@@ -183,7 +182,7 @@ async def smart_search(
         available_keywords = [row[0] for row in db.cursor.fetchall()]
         
         # 키워드 추출
-        extractor = SmartKeywordExtractor()
+        extractor = SimpleKeywordExtractor()
         extracted_keywords = extractor.extract_keywords(query, available_keywords)
         
         # 검색 쿼리 구성
