@@ -51,6 +51,9 @@ app.include_router(router, prefix="/api")
 # 로컬 개발 환경에서만 실행되도록 수정
 if __name__ == "__main__":
     import uvicorn
+    
+    # Render.com의 PORT 환경 변수를 사용
+    port = int(os.environ.get("PORT", 8000))
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
