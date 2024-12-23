@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router
 from fastapi.responses import JSONResponse, FileResponse
 from pathlib import Path
+import os
 
 # FastAPI 인스턴스 생성
 app = FastAPI(
