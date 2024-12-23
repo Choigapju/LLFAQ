@@ -14,50 +14,71 @@ from .models import (
 )
 from collections import Counter
 from datetime import datetime, timedelta
+import sqltie3
+
+# 전역 상수로 키워드 매핑 정의
+KEYWORD_MAPPINGS = {
+    '병원': ['병결', '공결'],
+    '공결': ['공결', '출결', '공결신청건'],
+    '병결': ['병결', '출결'],
+    '결석': ['출결', '공결', '병결'],
+    '지각': ['출결', '지각'],
+    'QR': ['QR', '출결'],
+    '훈련': ['훈련장려금'],
+    '장려금': ['훈련장려금'],
+    '면접': ['증빙서류', '면접'],
+    '단위': ['훈련장려금'],
+    '기간': ['훈련장려금', '출결'],
+    '신청': ['공결', '훈련장려금'],
+    '수당': ['훈련장려금'],
+    '지원금': ['훈련장려금'],
+    '출석': ['출결', 'QR'],
+    '체크': ['출결', 'QR'],
+    '인정': ['출결', '공결'],
+    '휴가': ['공결', '출결'],
+    '외출': ['출결'],
+    '조퇴': ['출결'],
+    '증명': ['증빙서류'],
+    '서류': ['증빙서류'],
+    '디스코드': ['디스코드'],
+    '줌': ['줌', 'zoom', 'ZOOM'],
+    '화상': ['줌', '디스코드'],
+    '온라인': ['줌', '디스코드', 'LMS'],
+    '수업': ['출결', 'LMS'],
+    'VOD': ['LMS', 'VOD'],
+    '영상': ['LMS', 'VOD'],
+    '강의': ['LMS', 'VOD', '출결'],
+    '출결': ['출결', '출결 관련']
+}
 
 class SimpleKeywordExtractor:
     def __init__(self):
-        self.keyword_mappings = {
-            '병원': ['병결', '공결'],
-            '공결': ['공결', '출결'],
-            '병결': ['병결', '출결'],
-            '결석': ['출결', '공결', '병결'],
-            '지각': ['출결', '지각'],
-            'QR': ['QR', '출결'],
-            '훈련': ['훈련장려금'],
-            '장려금': ['훈련장려금'],
-            '면접': ['증빙서류', '면접'],
-            '단위': ['훈련장려금'],
-            '기간': ['훈련장려금', '출결'],
-            '신청': ['공결', '훈련장려금'],
-            '수당': ['훈련장려금'],
-            '지원금': ['훈련장려금'],
-            '출석': ['출결', 'QR'],
-            '체크': ['출결', 'QR'],
-            '인정': ['출결', '공결'],
-            '휴가': ['공결', '출결'],
-            '외출': ['출결'],
-            '조퇴': ['출결'],
-            '증명': ['증빙서류'],
-            '서류': ['증빙서류'],
-            '디스코드': ['디스코드'],
-            '줌': ['줌', 'zoom', 'ZOOM'],
-            '화상': ['줌', '디스코드'],
-            '온라인': ['줌', '디스코드', 'LMS'],
-            '수업': ['출결', 'LMS'],
-            'VOD': ['LMS', 'VOD'],
-            '영상': ['LMS', 'VOD'],
-            '강의': ['LMS', 'VOD', '출결']
-        }
+        """
+        키워드 매핑을 초기화합니다.
+        전역 상수로 정의된 KEYWORD_MAPPINGS를 사용합니다.
+        """
+        self.keyword_mappings = KEYWORD_MAPPINGS
     
     def extract_keywords(self, text: str, available_keywords: List[str]) -> Set[str]:
-        words = text.split()
+        """
+        주어진 텍스트에서 키워드를 추출합니다.
+
+        Args:
+            text (str): 검색할 텍스트
+            available_keywords (List[str]): 사용 가능한 키워드 목록
+
+        Returns:
+            Set[str]: 추출된 키워드 집합
+        """
         extracted_keywords = set()
         
+        # 텍스트를 단어로 분리하여 각 단어에 대해 매핑된 키워드 찾기
+        words = text.split()
         for word in words:
             if word in self.keyword_mappings:
                 extracted_keywords.update(self.keyword_mappings[word])
         
+        # 실제 존재하는 키워드만 필터링하여 반환
         return set(kw for kw in extracted_keywords if any(ak in kw for ak in available_keywords))
     
 # (.)온점 기준 줄바꿈
@@ -377,7 +398,6 @@ async def get_popular_keywords():
     tags=["faqs"]
 )
 async def create_faq(faq: FAQCreate):
-    """새로운 FAQ를 생성합니다."""
     try:
         db.add_faq(faq.keywords, faq.question, faq.answer)
         results = db.get_all_faqs()
@@ -385,8 +405,11 @@ async def create_faq(faq: FAQCreate):
         return FAQ(
             id=last_faq[0],
             keywords=last_faq[1],
-            question=last_faq[2],
-            answer=last_faq[3]
+            question=format_text_with_linebreaks(last_faq[2]),
+            answer=format_text_with_linebreaks(last_faq[3])
         )
+    except sqlite3.Error as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
