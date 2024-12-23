@@ -60,6 +60,14 @@ class SimpleKeywordExtractor:
         
         return set(kw for kw in extracted_keywords if any(ak in kw for ak in available_keywords))
     
+# (.)온점 기준 줄바꿈
+def format_text_with_linebreaks(text: str) -> str:
+    """온점(.) 뒤에 줄바꿈을 추가하는 함수"""
+    # 온점과 공백으로 끝나는 패턴을 찾아 줄바꿈으로 대체
+    # 단, 숫자 사이의 온점은 제외 (예: 15.5)
+    sentences = text.split('. ')
+    formatted_text = '.\n'.join(sentences)
+    return formatted_text
 
 # 422 에러 응답 스키마 정의
 class ValidationError(BaseModel):
@@ -209,8 +217,8 @@ async def smart_search(
             FAQ(
                 id=row[0],
                 keywords=row[1],
-                question=row[2],
-                answer=row[3]
+                question=format_text_with_linebreaks(row[2]),
+                answer=format_text_with_linebreaks(row[3])
             ) for row in results
         ]
         
