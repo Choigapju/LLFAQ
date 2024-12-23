@@ -12,14 +12,11 @@ from .models import (
     Notice,
     NoticeCreate
 )
-from konlpy.tag import Okt
 from collections import Counter
 from datetime import datetime, timedelta
 
-class SmartKeywordExtractor:
+class SimpleKeywordExtractor:
     def __init__(self):
-        self.okt = Okt()
-        # FAQ 키워드 사전
         self.keyword_mappings = {
             '병원': ['병결', '공결'],
             '공결': ['공결', '출결'],
@@ -29,7 +26,7 @@ class SmartKeywordExtractor:
             'QR': ['QR', '출결'],
             '훈련': ['훈련장려금'],
             '장려금': ['훈련장려금'],
-            '면접': ['증빙서류, 면접'],
+            '면접': ['증빙서류', '면접'],
             '단위': ['훈련장려금'],
             '기간': ['훈련장려금', '출결'],
             '신청': ['공결', '훈련장려금'],
@@ -48,19 +45,29 @@ class SmartKeywordExtractor:
             '화상': ['줌', '디스코드'],
             '온라인': ['줌', '디스코드', 'LMS'],
             '수업': ['출결', 'LMS'],
-            'VOD': ['LMS, VOD'],
-            '영상': ['LMS, VOD'],
-            '강의': ['LMS, VOD', '출결'],
+            'VOD': ['LMS', 'VOD'],
+            '영상': ['LMS', 'VOD'],
+            '강의': ['LMS', 'VOD', '출결']
         }
     
     def extract_keywords(self, text: str, available_keywords: List[str]) -> Set[str]:
-        morphs = self.okt.nouns(text)
+        words = text.split()
         extracted_keywords = set()
-        for morph in morphs:
-            if morph in self.keyword_mappings:
-                extracted_keywords.update(self.keyword_mappings[morph])
+        
+        for word in words:
+            if word in self.keyword_mappings:
+                extracted_keywords.update(self.keyword_mappings[word])
+        
         return set(kw for kw in extracted_keywords if any(ak in kw for ak in available_keywords))
     
+# (.)온점 기준 줄바꿈
+def format_text_with_linebreaks(text: str) -> str:
+    """온점(.) 뒤에 줄바꿈을 추가하는 함수"""
+    # 온점과 공백으로 끝나는 패턴을 찾아 줄바꿈으로 대체
+    # 단, 숫자 사이의 온점은 제외 (예: 15.5)
+    sentences = text.split('. ')
+    formatted_text = '.\n'.join(sentences)
+    return formatted_text
 
 # 422 에러 응답 스키마 정의
 class ValidationError(BaseModel):
@@ -183,7 +190,7 @@ async def smart_search(
         available_keywords = [row[0] for row in db.cursor.fetchall()]
         
         # 키워드 추출
-        extractor = SmartKeywordExtractor()
+        extractor = SimpleKeywordExtractor()
         extracted_keywords = extractor.extract_keywords(query, available_keywords)
         
         # 검색 쿼리 구성
@@ -210,8 +217,8 @@ async def smart_search(
             FAQ(
                 id=row[0],
                 keywords=row[1],
-                question=row[2],
-                answer=row[3]
+                question=format_text_with_linebreaks(row[2]),
+                answer=format_text_with_linebreaks(row[3])
             ) for row in results
         ]
         
@@ -230,40 +237,11 @@ async def smart_search(
     responses={
         200: {
             "description": "성공적으로 FAQ를 검색한 경우",
-            "model": SearchResponse,
-            "content": {
-                "application/json": {
-                    "example": {
-                        "total": 2,
-                        "available_keywords": ["출결", "훈련장려금"],
-                        "results": [
-                            {
-                                "id": 1,
-                                "keywords": "출결",
-                                "question": "출결 관련 질문",
-                                "answer": "출결 관련 답변"
-                            }
-                        ]
-                    }
-                }
-            }
+            "model": SearchResponse
         },
         422: {
             "description": "유효하지 않은 매개변수가 전달된 경우",
-            "model": HTTPValidationError,
-            "content": {
-                "application/json": {
-                    "example": {
-                        "detail": [
-                            {
-                                "loc": ["query"],
-                                "msg": "유효하지 않은 검색어 형식",
-                                "type": "value_error"
-                            }
-                        ]
-                    }
-                }
-            }
+            "model": HTTPValidationError
         }
     },
     tags=["faqs"]
@@ -278,7 +256,16 @@ async def search_faqs(
     - keyword: 특정 카테고리로 필터링할 키워드
     """
     try:
-        # 기존 코드 유지
+        # 키워드 매핑 정의
+        keyword_mapping = {
+            "공결신청건": "공결",
+            "출결 관련": "출결"
+        }
+        
+        # 검색 키워드 매핑
+        if keyword:
+            keyword = keyword_mapping.get(keyword, keyword)
+        
         # 키워드 목록 조회
         db.cursor.execute("""
             SELECT DISTINCT keywords 
@@ -317,8 +304,8 @@ async def search_faqs(
             FAQ(
                 id=row[0],
                 keywords=row[1],
-                question=row[2],
-                answer=row[3]
+                question=format_text_with_linebreaks(row[2]),
+                answer=format_text_with_linebreaks(row[3])
             ) for row in results
         ]
 
