@@ -80,10 +80,11 @@ class SimpleKeywordExtractor:
 # (.)온점 기준 줄바꿈
 def format_text_with_linebreaks(text: str) -> str:
     """온점(.) 뒤에 줄바꿈을 추가하는 함수"""
-    # HTML <br/> 태그 사용
-    text = text.replace('. ', '.__BREAK__')
-    text = text.replace('? ', '?__BREAK__')
-    text = text.replace('! ', '!__BREAK__')
+    # 온점과 공백으로 끝나는 패턴을 찾아 줄바꿈으로 대체
+    # 단, 숫자 사이의 온점은 제외 (예: 15.5)
+    sentences = text.split('. ')
+    formatted_text = '.\n'.join(sentences)
+    return formatted_text
 
 # 422 에러 응답 스키마 정의
 class ValidationError(BaseModel):
@@ -152,8 +153,8 @@ async def get_notices(
             
             notice = Notice(
                 id=row[0],
-                title=format_text_with_linebreaks(row[1]),  # title에도 적용
-                content=format_text_with_linebreaks(row[2]),  # content에도 적용
+                title=row[1],
+                content=row[2],
                 is_new=(created_at > two_weeks_ago),
                 created_at=created_at,
                 updated_at=updated_at
@@ -168,38 +169,23 @@ async def get_notices(
 @router.post("/notices/", response_model=Notice)
 async def create_notice(notice: NoticeCreate):
     try:
-        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
-        # 데이터 삽입
         db.cursor.execute("""
-            INSERT INTO notices (title, content, created_at, updated_at)
-            VALUES (?, ?, ?, ?)
-        """, (notice.title, notice.content, current_time, current_time))
-        
-        # 삽입된 ID 가져오기
-        notice_id = db.cursor.lastrowid
-        
-        # 변경사항 저장
+            INSERT INTO notices (title, content)
+            VALUES (?, ?)
+            RETURNING *
+        """, (notice.title, notice.content))
         db.commit()
-        
-        # 삽입된 데이터 조회
-        db.cursor.execute("SELECT * FROM notices WHERE id = ?", (notice_id,))
         result = db.cursor.fetchone()
         
-        if result:
-            return Notice(
-                id=result[0],
-                title=format_text_with_linebreaks(result[1]),
-                content=format_text_with_linebreaks(result[2]),
-                is_new=True,
-                created_at=datetime.strptime(result[4], '%Y-%m-%d %H:%M:%S'),
-                updated_at=datetime.strptime(result[5], '%Y-%m-%d %H:%M:%S')
-            )
-        else:
-            raise HTTPException(status_code=500, detail="Failed to create notice")
-            
+        return Notice(
+            id=result[0],
+            title=result[1],
+            content=result[2],
+            is_new=True,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
     except Exception as e:
-        db.rollback()  # 오류 발생 시 롤백
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get(
