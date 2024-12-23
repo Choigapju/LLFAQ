@@ -14,60 +14,76 @@ from .models import (
 )
 from collections import Counter
 from datetime import datetime, timedelta
+import sqlite3
+
+# 키워드 매핑 정의
+KEYWORD_MAPPINGS = {
+    '출결': ['출결'],
+    '공결': ['공결'],
+    '병결': ['병결', '출결'],
+    '결석': ['출결', '공결', '병결'],
+    '지각': ['출결', '지각'],
+    'QR': ['QR', '출결'],
+    '훈련장려금': ['훈련장려금'],
+    '장려금': ['훈련장려금'],
+    '면접': ['증빙서류', '면접'],
+    '단위기간': ['훈련장려금'],
+    '수당': ['훈련장려금'],
+    '지원금': ['훈련장려금'],
+    '출석': ['출결', 'QR'],
+    '퇴실': ['출결', 'QR'],
+    '출석체크': ['출결', 'QR'],
+    '인정': ['출결', '공결', '병결'],
+    '휴가': ['공결', '출결'],
+    '외출': ['출결', '외출'],
+    '조퇴': ['출결', '조퇴'],
+    '증명': ['증빙서류'],
+    '서류': ['증빙서류'],
+    '디스코드': ['디스코드'],
+    '줌': ['줌', 'zoom', 'ZOOM'],
+    '화상': ['줌', '디스코드'],
+    '온라인': ['줌', 'zoom', 'ZOOM', '디스코드', 'LMS'],
+    '수업': ['출결', 'LMS'],
+    'VOD': ['LMS', 'VOD'],
+    '영상': ['LMS', 'VOD'],
+    '강의': ['LMS', 'VOD', '출결']
+}
+
+def normalize_keyword(keyword: str) -> str:
+    """검색 키워드를 정규화합니다."""
+    # 공백 제거 및 관련/건 등의 접미사 제거
+    normalized = keyword.replace(' ', '')
+    normalized = normalized.replace('관련', '')
+    normalized = normalized.replace('신청건', '')
+    return normalized
 
 class SimpleKeywordExtractor:
     def __init__(self):
-        self.keyword_mappings = {
-            '병원': ['병결', '공결'],
-            '공결': ['공결', '출결'],
-            '병결': ['병결', '출결'],
-            '결석': ['출결', '공결', '병결'],
-            '지각': ['출결', '지각'],
-            'QR': ['QR', '출결'],
-            '훈련': ['훈련장려금'],
-            '장려금': ['훈련장려금'],
-            '면접': ['증빙서류', '면접'],
-            '단위': ['훈련장려금'],
-            '기간': ['훈련장려금', '출결'],
-            '신청': ['공결', '훈련장려금'],
-            '수당': ['훈련장려금'],
-            '지원금': ['훈련장려금'],
-            '출석': ['출결', 'QR'],
-            '체크': ['출결', 'QR'],
-            '인정': ['출결', '공결'],
-            '휴가': ['공결', '출결'],
-            '외출': ['출결'],
-            '조퇴': ['출결'],
-            '증명': ['증빙서류'],
-            '서류': ['증빙서류'],
-            '디스코드': ['디스코드'],
-            '줌': ['줌', 'zoom', 'ZOOM'],
-            '화상': ['줌', '디스코드'],
-            '온라인': ['줌', '디스코드', 'LMS'],
-            '수업': ['출결', 'LMS'],
-            'VOD': ['LMS', 'VOD'],
-            '영상': ['LMS', 'VOD'],
-            '강의': ['LMS', 'VOD', '출결']
-        }
+        """키워드 매핑을 초기화합니다."""
+        self.keyword_mappings = KEYWORD_MAPPINGS
     
     def extract_keywords(self, text: str, available_keywords: List[str]) -> Set[str]:
-        words = text.split()
+        """
+        주어진 텍스트에서 키워드를 추출합니다.
+        텍스트를 정규화하여 처리합니다.
+        """
         extracted_keywords = set()
-        
+        words = text.split()
         for word in words:
-            if word in self.keyword_mappings:
-                extracted_keywords.update(self.keyword_mappings[word])
+            # 각 단어를 정규화하여 검색
+            normalized_word = normalize_keyword(word)
+            if normalized_word in self.keyword_mappings:
+                extracted_keywords.update(self.keyword_mappings[normalized_word])
         
         return set(kw for kw in extracted_keywords if any(ak in kw for ak in available_keywords))
     
 # (.)온점 기준 줄바꿈
 def format_text_with_linebreaks(text: str) -> str:
     """온점(.) 뒤에 줄바꿈을 추가하는 함수"""
-    # 온점과 공백으로 끝나는 패턴을 찾아 줄바꿈으로 대체
-    # 단, 숫자 사이의 온점은 제외 (예: 15.5)
-    sentences = text.split('. ')
-    formatted_text = '.\n'.join(sentences)
-    return formatted_text
+    # HTML <br/> 태그 사용
+    text = text.replace('. ', '.__BREAK__')
+    text = text.replace('? ', '?__BREAK__')
+    text = text.replace('! ', '!__BREAK__')
 
 # 422 에러 응답 스키마 정의
 class ValidationError(BaseModel):
@@ -136,8 +152,8 @@ async def get_notices(
             
             notice = Notice(
                 id=row[0],
-                title=row[1],
-                content=row[2],
+                title=format_text_with_linebreaks(row[1]),  # title에도 적용
+                content=format_text_with_linebreaks(row[2]),  # content에도 적용
                 is_new=(created_at > two_weeks_ago),
                 created_at=created_at,
                 updated_at=updated_at
@@ -162,8 +178,8 @@ async def create_notice(notice: NoticeCreate):
         
         return Notice(
             id=result[0],
-            title=result[1],
-            content=result[2],
+            title=format_text_with_linebreaks(result[1]),
+            content=format_text_with_linebreaks(result[2]),
             is_new=True,
             created_at=datetime.now(),
             updated_at=datetime.now(),
@@ -377,7 +393,6 @@ async def get_popular_keywords():
     tags=["faqs"]
 )
 async def create_faq(faq: FAQCreate):
-    """새로운 FAQ를 생성합니다."""
     try:
         db.add_faq(faq.keywords, faq.question, faq.answer)
         results = db.get_all_faqs()
@@ -385,8 +400,11 @@ async def create_faq(faq: FAQCreate):
         return FAQ(
             id=last_faq[0],
             keywords=last_faq[1],
-            question=last_faq[2],
-            answer=last_faq[3]
+            question=format_text_with_linebreaks(last_faq[2]),
+            answer=format_text_with_linebreaks(last_faq[3])
         )
+    except sqlite3.Error as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
