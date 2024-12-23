@@ -2,14 +2,8 @@ services:
   - type: web
     name: fastapi-app
     runtime: python3.9
-    buildCommand: |
-      apt-get update && \
-      apt-get install -y g++ default-jdk python3-dev build-essential && \
-      pip install JPype1==1.4.1 && \
-      pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt
     startCommand: cd faq_project && uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: JAVA_HOME
-        value: /usr/lib/jvm/default-java
       - key: PYTHONPATH
         value: /opt/render/project/src/faq_project
