@@ -237,40 +237,11 @@ async def smart_search(
     responses={
         200: {
             "description": "성공적으로 FAQ를 검색한 경우",
-            "model": SearchResponse,
-            "content": {
-                "application/json": {
-                    "example": {
-                        "total": 2,
-                        "available_keywords": ["출결", "훈련장려금"],
-                        "results": [
-                            {
-                                "id": 1,
-                                "keywords": "출결",
-                                "question": "출결 관련 질문",
-                                "answer": "출결 관련 답변"
-                            }
-                        ]
-                    }
-                }
-            }
+            "model": SearchResponse
         },
         422: {
             "description": "유효하지 않은 매개변수가 전달된 경우",
-            "model": HTTPValidationError,
-            "content": {
-                "application/json": {
-                    "example": {
-                        "detail": [
-                            {
-                                "loc": ["query"],
-                                "msg": "유효하지 않은 검색어 형식",
-                                "type": "value_error"
-                            }
-                        ]
-                    }
-                }
-            }
+            "model": HTTPValidationError
         }
     },
     tags=["faqs"]
@@ -285,7 +256,16 @@ async def search_faqs(
     - keyword: 특정 카테고리로 필터링할 키워드
     """
     try:
-        # 기존 코드 유지
+        # 키워드 매핑 정의
+        keyword_mapping = {
+            "공결신청건": "공결",
+            "출결 관련": "출결"
+        }
+        
+        # 검색 키워드 매핑
+        if keyword:
+            keyword = keyword_mapping.get(keyword, keyword)
+        
         # 키워드 목록 조회
         db.cursor.execute("""
             SELECT DISTINCT keywords 
@@ -324,8 +304,8 @@ async def search_faqs(
             FAQ(
                 id=row[0],
                 keywords=row[1],
-                question=row[2],
-                answer=row[3]
+                question=format_text_with_linebreaks(row[2]),
+                answer=format_text_with_linebreaks(row[3])
             ) for row in results
         ]
 
