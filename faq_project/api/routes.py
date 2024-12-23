@@ -14,7 +14,7 @@ from .models import (
 )
 from collections import Counter
 from datetime import datetime, timedelta
-import sqltie3
+import sqlite3
 
 # 전역 상수로 키워드 매핑 정의
 KEYWORD_MAPPINGS = {
