@@ -168,22 +168,33 @@ async def get_notices(
 @router.post("/notices/", response_model=Notice)
 async def create_notice(notice: NoticeCreate):
     try:
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
         db.cursor.execute("""
-            INSERT INTO notices (title, content)
-            VALUES (?, ?)
-            RETURNING *
-        """, (notice.title, notice.content))
+            INSERT INTO notices (title, content, created_at, updated_at)
+            VALUES (?, ?, ?, ?)
+        """, (notice.title, notice.content, current_time, current_time))
         db.commit()
+        
+        # 마지막으로 삽입된 row의 id 가져오기
+        last_id = db.cursor.lastrowid
+        
+        # 삽입된 데이터 조회
+        db.cursor.execute("SELECT * FROM notices WHERE id = ?", (last_id,))
         result = db.cursor.fetchone()
         
-        return Notice(
-            id=result[0],
-            title=format_text_with_linebreaks(result[1]),
-            content=format_text_with_linebreaks(result[2]),
-            is_new=True,
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-        )
+        if result:
+            return Notice(
+                id=result[0],
+                title=format_text_with_linebreaks(result[1]),
+                content=format_text_with_linebreaks(result[2]),
+                is_new=True,
+                created_at=datetime.strptime(result[4], '%Y-%m-%d %H:%M:%S'),
+                updated_at=datetime.strptime(result[5], '%Y-%m-%d %H:%M:%S')
+            )
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create notice")
+            
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
