@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Query
 from typing import List, Optional, Dict, Any, Set
 from pydantic import BaseModel
 from database.db_manager import DatabaseManager
@@ -80,10 +80,11 @@ class SimpleKeywordExtractor:
 # (.)온점 기준 줄바꿈
 def format_text_with_linebreaks(text: str) -> str:
     """온점(.) 뒤에 줄바꿈을 추가하는 함수"""
-    # HTML <br/> 태그 사용
-    text = text.replace('. ', '.__BREAK__')
-    text = text.replace('? ', '?__BREAK__')
-    text = text.replace('! ', '!__BREAK__')
+    # 온점과 공백으로 끝나는 패턴을 찾아 줄바꿈으로 대체
+    # 단, 숫자 사이의 온점은 제외 (예: 15.5)
+    sentences = text.split('. ')
+    formatted_text = '.\n'.join(sentences)
+    return formatted_text
 
 # 422 에러 응답 스키마 정의
 class ValidationError(BaseModel):
@@ -152,8 +153,8 @@ async def get_notices(
             
             notice = Notice(
                 id=row[0],
-                title=format_text_with_linebreaks(row[1]),  # title에도 적용
-                content=format_text_with_linebreaks(row[2]),  # content에도 적용
+                title=row[1],
+                content=row[2],
                 is_new=(created_at > two_weeks_ago),
                 created_at=created_at,
                 updated_at=updated_at
@@ -178,8 +179,8 @@ async def create_notice(notice: NoticeCreate):
         
         return Notice(
             id=result[0],
-            title=format_text_with_linebreaks(result[1]),
-            content=format_text_with_linebreaks(result[2]),
+            title=result[1],
+            content=result[2],
             is_new=True,
             created_at=datetime.now(),
             updated_at=datetime.now(),
