@@ -5,3 +5,5 @@ python-multipart==0.0.6
 sqlalchemy==2.0.25
 gunicorn==21.2.0
 sqladmin
+itsdangerous
+python-multipart
