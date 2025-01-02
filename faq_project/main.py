@@ -4,6 +4,10 @@ from api.routes import router
 from fastapi.responses import JSONResponse, FileResponse
 from pathlib import Path
 import os
+from sqladmin import Admin
+from api.admin import FAQAdmin, NoticeAdmin, AdminAuth
+from database.db_manager import DatabaseManager
+from starlette.middleware.sessions import SessionMiddleware  # 이 줄 추가
 
 # FastAPI 인스턴스 생성
 app = FastAPI(
@@ -11,6 +15,19 @@ app = FastAPI(
     description="라이언 헬퍼",
     version="1.0.0"
 )
+
+# 세션 미들웨어 추가 (관리자 인증에 필요)
+app.add_middleware(SessionMiddleware, secret_key="admin")  # 안전한 비밀키로 변경하세요
+
+# Admin 설정
+db_manager = DatabaseManager()
+admin = Admin(
+    app, 
+    engine=db_manager.engine,
+    authentication_backend=AdminAuth(secret_key="admin")  # 안전한 비밀키로 변경하세요
+)
+admin.add_view(FAQAdmin)
+admin.add_view(NoticeAdmin)
 
 # CORS 설정
 app.add_middleware(

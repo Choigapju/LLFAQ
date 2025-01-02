@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Query
 from typing import List, Optional, Dict, Any, Set
 from pydantic import BaseModel
 from database.db_manager import DatabaseManager
