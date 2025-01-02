@@ -1,3 +1,4 @@
+# api/admin.py
 from sqladmin import ModelView
 from database.models import FAQModel, NoticeModel
 from sqladmin.authentication import AuthenticationBackend
@@ -26,7 +27,7 @@ class AdminAuth(AuthenticationBackend):
             return False
         return True
 
-class FAQAdmin(ModelView, model=FAQModel):  # FAQ -> FAQModel로 변경
+class FAQAdmin(ModelView, model=FAQModel):
     column_list = ["id", "keywords", "question", "answer"]
     column_searchable_list = ["keywords", "question"]
     can_create = True
@@ -35,7 +36,7 @@ class FAQAdmin(ModelView, model=FAQModel):  # FAQ -> FAQModel로 변경
     name = "FAQ"
     name_plural = "FAQs"
 
-class NoticeAdmin(ModelView, model=NoticeModel):  # Notice -> NoticeModel로 변경
+class NoticeAdmin(ModelView, model=NoticeModel):
     column_list = ["id", "title", "content", "created_at"]
     column_searchable_list = ["title", "content"]
     can_create = True

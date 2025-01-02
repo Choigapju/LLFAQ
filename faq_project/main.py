@@ -16,15 +16,18 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# 환경변수에서 시크릿 키 가져오기
+SECRET_KEY = os.environ.get("SECRET_KEY", "llfaq")
+
 # 세션 미들웨어 추가 (관리자 인증에 필요)
-app.add_middleware(SessionMiddleware, secret_key="admin")  # 안전한 비밀키로 변경하세요
+app.add_middleware(SessionMiddleware, secret_key="llfaq")  # 안전한 비밀키로 변경하세요
 
 # Admin 설정
 db_manager = DatabaseManager()
 admin = Admin(
     app, 
     engine=db_manager.engine,
-    authentication_backend=AdminAuth(secret_key="admin")  # 안전한 비밀키로 변경하세요
+    authentication_backend=AdminAuth(secret_key="llfaq")  # 안전한 비밀키로 변경하세요
 )
 admin.add_view(FAQAdmin)
 admin.add_view(NoticeAdmin)
@@ -36,6 +39,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # favicon.ico 처리
