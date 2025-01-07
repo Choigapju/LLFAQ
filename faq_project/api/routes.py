@@ -15,6 +15,7 @@ from .models import (
 from collections import Counter
 from datetime import datetime, timedelta
 import sqlite3
+import re
 
 # 키워드 매핑 정의
 KEYWORD_MAPPINGS = {
@@ -43,39 +44,101 @@ KEYWORD_MAPPINGS = {
     '줌': ['줌', 'zoom', 'ZOOM'],
     '화상': ['줌', '디스코드'],
     '온라인': ['줌', 'zoom', 'ZOOM', '디스코드', 'LMS'],
-    '수업': ['출결', 'LMS'],
+    '수업': ['출결', 'LMS', 'VOD'],
     'VOD': ['LMS', 'VOD'],
     '영상': ['LMS', 'VOD'],
-    '강의': ['LMS', 'VOD', '출결']
+    '강의': ['LMS', 'VOD', '출결'],
+    '민방위': ['민방위', '공결'],
+    '예비군': ['예비군', '공결'],
+    '병원': ['병결', '공결', '출결'],
 }
 
 def normalize_keyword(keyword: str) -> str:
     """검색 키워드를 정규화합니다."""
-    # 공백 제거 및 관련/건 등의 접미사 제거
-    normalized = keyword.replace(' ', '')
-    normalized = normalized.replace('관련', '')
-    normalized = normalized.replace('신청건', '')
-    return normalized
+    # 소문자 변환
+    normalized = keyword.lower()
+    
+    # 특수문자 및 공백 처리
+    normalized = re.sub(r'[^\w\s가-힣]', '', normalized)
+    
+    # 불필요한 접미사 제거
+    suffixes = ['관련', '건', '합니다', '했습니다', '니다', '요', '할까요', '해요',
+                '하고싶어요', '해주세요', '가능한가요', '문의']
+    for suffix in suffixes:
+        if normalized.endswith(suffix):
+            normalized = normalized[:-len(suffix)]
+            
+    # 불필요한 조사 제거
+    particles = ['은', '는', '이', '가', '을', '를', '로', '으로', '에서', '에']
+    for particle in particles:
+        normalized = normalized.replace(particle, '')
+        
+    return normalized.strip()
 
 class SimpleKeywordExtractor:
     def __init__(self):
         """키워드 매핑을 초기화합니다."""
         self.keyword_mappings = KEYWORD_MAPPINGS
+        
+        # 복합 키워드는 기존 매핑에서 자동으로 생성
+        self.compound_keywords = {}
+        for key, values in KEYWORD_MAPPINGS.items():
+            # 복합 키워드 생성 (예: '공결신청', '출석체크' 등)
+            self.compound_keywords[f'{key}신청'] = values
+            self.compound_keywords[f'{key}처리'] = values
+            self.compound_keywords[f'{key}확인'] = values
     
     def extract_keywords(self, text: str, available_keywords: List[str]) -> Set[str]:
-        """
-        주어진 텍스트에서 키워드를 추출합니다.
-        텍스트를 정규화하여 처리합니다.
-        """
-        extracted_keywords = set()
-        words = text.split()
-        for word in words:
-            # 각 단어를 정규화하여 검색
-            normalized_word = normalize_keyword(word)
-            if normalized_word in self.keyword_mappings:
-                extracted_keywords.update(self.keyword_mappings[normalized_word])
-        
-        return set(kw for kw in extracted_keywords if any(ak in kw for ak in available_keywords))
+        try:
+            print(f"Extracting keywords from: {text}")
+            extracted_keywords = set()
+            
+            # 텍스트 정규화
+            normalized_text = normalize_keyword(text)
+            print(f"Normalized text: {normalized_text}")
+            words = normalized_text.split()
+            
+            # 1. 먼저 전체 문장에서 키워드 매칭 시도
+            for key in self.keyword_mappings:
+                if key in normalized_text:
+                    extracted_keywords.update(self.keyword_mappings[key])
+            
+            # 2. 개별 단어 매칭 (첫 번째 방법으로 키워드를 찾지 못한 경우)
+            if not extracted_keywords:
+                for word in words:
+                    if word in self.keyword_mappings:
+                        extracted_keywords.update(self.keyword_mappings[word])
+            
+            # 3. 복합 키워드 검색 (아직도 키워드를 찾지 못한 경우)
+            if not extracted_keywords:
+                for i in range(len(words)):
+                    for j in range(i + 1, min(i + 4, len(words) + 1)):
+                        compound = ''.join(words[i:j])
+                        if compound in self.compound_keywords:
+                            extracted_keywords.update(self.compound_keywords[compound])
+                        # 복합 키워드의 부분 매칭도 시도
+                        for key in self.keyword_mappings:
+                            if key in compound:
+                                extracted_keywords.update(self.keyword_mappings[key])
+            
+            print(f"Extracted keywords before filtering: {extracted_keywords}")
+            
+            # available_keywords와 매칭되는 것만 반환
+            if extracted_keywords:
+                result = set(kw for kw in extracted_keywords if kw in available_keywords)
+            else:
+                # 아무 키워드도 찾지 못한 경우, 문장 전체를 기준으로 available_keywords에서 찾아봄
+                result = set(kw for kw in available_keywords 
+                            if any(k in normalized_text for k in self.keyword_mappings.keys()))
+                
+            print(f"Final extracted keywords: {result}")
+            return result
+                
+        except Exception as e:
+            print(f"Error in extract_keywords: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+            return set()
     
 # (.)온점 기준 줄바꿈
 def format_text_with_linebreaks(text: str) -> str:
@@ -197,6 +260,8 @@ async def smart_search(
     query: str = Query(..., description="검색할 자연어 문장", example="병원 방문으로 공결 신청합니다")
 ):
     try:
+        print(f"Received query: {query}")
+        
         # 사용 가능한 키워드 목록 가져오기
         db.cursor.execute("""
             SELECT DISTINCT keywords 
@@ -205,31 +270,72 @@ async def smart_search(
             ORDER BY keywords
         """)
         available_keywords = [row[0] for row in db.cursor.fetchall()]
+        print(f"Available keywords: {available_keywords}")
         
         # 키워드 추출
         extractor = SimpleKeywordExtractor()
         extracted_keywords = extractor.extract_keywords(query, available_keywords)
+        print(f"Extracted keywords: {extracted_keywords}")
         
-        # 검색 쿼리 구성
+        # 검색 실행
         if extracted_keywords:
-            placeholders = ' OR '.join(['keywords LIKE ?' for _ in extracted_keywords])
-            search_terms = [f'%{keyword}%' for keyword in extracted_keywords]
+            # IN 절의 플레이스홀더 생성
+            in_placeholders = ','.join(['?' for _ in extracted_keywords])
+            
+            # LIKE 절의 플레이스홀더 생성
+            like_placeholders = ' OR '.join(['keywords LIKE ?' for _ in extracted_keywords])
             
             sql_query = f"""
-                SELECT * FROM faq 
-                WHERE {placeholders}
-                ORDER BY id DESC
+                SELECT *,
+                    CASE
+                        WHEN keywords IN ({in_placeholders}) THEN 1
+                        WHEN {like_placeholders} THEN 2
+                        ELSE 3
+                    END as relevance
+                FROM faq
+                WHERE {like_placeholders}
+                ORDER BY relevance, id DESC
             """
-            db.cursor.execute(sql_query, search_terms)
+            
+            # 파라미터 준비
+            # IN 절용 파라미터
+            exact_params = list(extracted_keywords)
+            # LIKE 절용 파라미터 (CASE문과 WHERE절에서 각각 사용)
+            like_params = [f'%{k}%' for k in extracted_keywords]
+            # 최종 파라미터 = IN절 + LIKE절(CASE) + LIKE절(WHERE)
+            all_params = exact_params + like_params + like_params
+            
+            print(f"SQL Query: {sql_query}")
+            print(f"Parameters: {all_params}")
+            
+            db.cursor.execute(sql_query, all_params)
         else:
             # 키워드가 추출되지 않은 경우 전체 텍스트로 검색
+            normalized_query = normalize_keyword(query)
+            exact_pattern = f'%{query}%'
+            norm_pattern = f'%{normalized_query}%'
+            
             db.cursor.execute("""
-                SELECT * FROM faq 
-                WHERE question LIKE ? OR answer LIKE ?
-                ORDER BY id DESC
-            """, (f'%{query}%', f'%{query}%'))
+                SELECT *, 
+                    CASE 
+                        WHEN question LIKE ? OR answer LIKE ? THEN 1
+                        WHEN LOWER(question) LIKE ? OR LOWER(answer) LIKE ? THEN 2
+                        ELSE 3
+                    END as relevance
+                FROM faq 
+                WHERE question LIKE ? OR answer LIKE ? OR
+                      LOWER(question) LIKE ? OR LOWER(answer) LIKE ?
+                ORDER BY relevance, id DESC
+            """, [
+                exact_pattern, exact_pattern,
+                norm_pattern, norm_pattern,
+                exact_pattern, exact_pattern,
+                norm_pattern, norm_pattern
+            ])
         
         results = db.cursor.fetchall()
+        print(f"Number of results: {len(results)}")
+        
         faqs = [
             FAQ(
                 id=row[0],
@@ -246,8 +352,11 @@ async def smart_search(
         )
         
     except Exception as e:
+        print(f"Error in smart_search: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 @router.get(
     "/faqs/search/",
     response_model=SearchResponse,

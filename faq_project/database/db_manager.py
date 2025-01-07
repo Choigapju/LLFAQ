@@ -1,6 +1,7 @@
 import sqlite3
 import os
 from pathlib import Path
+from typing import List, Optional
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from database.models import Base
@@ -92,3 +93,53 @@ class DatabaseManager:
 
     def __del__(self):
         self.close()
+        
+def commit(self):
+    """변경사항 커밋"""
+    try:
+        self.conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error during commit: {e}")
+        self.conn.rollback()
+        return False
+    
+def rollback(self):
+    """변경사항 롤백"""
+    try:
+        self.conn.rollback()
+    except Exception as e:
+        print(f"Error during rollback: {e}")
+        
+def execute_query(self, query, params=None):
+    try:
+        if params:
+            self.cursor.execute(query, params)
+        else:
+            self.cursor.execute(query)
+        return True
+    except Exception as e:
+        print(f"Error executing query: {e}")
+        self.rollback()
+        return False
+    
+def smart_search_faqs(self, keywords: List[str]):
+    try:
+        placeholders = ','.join(['?' for i in keywords])
+        query = f"""
+            SELECT *,
+                CASE
+                    WHEN keywords IN ({placeholders}) THEN 1
+                    WHEN keywords LIKE ? THEN 2
+                    ELSE 3
+                END as relevance
+            FROM faq
+            WHERE keywords IN ({placeholders})
+            ORDER BY relevance, id DESC
+        """
+        search_terms = keywords + [f'%{k}%' for k in keywords]
+        self.cursor.execute(query, search_terms)
+        return self.cursor.fetchall()
+    except Exception as e:
+        print(f"Error in smart search: {e}")
+        return []
