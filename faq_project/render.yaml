@@ -4,6 +4,13 @@ services:
     runtime: python3.9
     buildCommand: pip install -r requirements.txt
     startCommand: cd faq_project && uvicorn main:app --host 0.0.0.0 --port $PORT
+    staticPublishPath: ./static  # 정적 파일 경로 추가
     envVars:
       - key: PYTHONPATH
         value: /opt/render/project/src/faq_project
+      - key: SECRET_KEY  # 세션 관리를 위한 시크릿 키 추가
+        value: "llfaq"  # 실제 배포시에는 안전한 키로 변경
+      - key: ADMIN_USERNAME  # 관리자 계정 정보
+        value: "itlab"
+      - key: ADMIN_PASSWORD
+        value: "likelion"

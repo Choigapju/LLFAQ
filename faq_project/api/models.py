@@ -49,3 +49,14 @@ class Notice(NoticeBase):
         from_attributes=True,
         arbitrary_types_allowed=True
     )
+    
+class FAQ(FAQBase):
+    id: int
+    relevance: Optional[int] = None  # smart_search에서 사용되는 relevance 필드 추가
+    model_config = ConfigDict(from_attributes=True)
+
+class SearchResponse(BaseModel):
+    total: int
+    available_keywords: List[str]
+    results: List[FAQ]
+    matched_keywords: Optional[List[str]] = None  # 매칭된 키워드 정보 추가
