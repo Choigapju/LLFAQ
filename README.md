@@ -5,4 +5,11 @@
 
 ### 구조
 - FastAPI
-- SQLite
+- SQLite -> PostgreSQL 전환 중
+
+### API 목록
+- comment
+- search
+- admin
+- category
+- user
