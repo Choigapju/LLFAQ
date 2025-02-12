@@ -58,30 +58,30 @@ def get_faqs_by_category(
 # 키워드 매핑 정의
 KEYWORD_MAPPINGS = {
     # 출결 관련
-    '출결': ['출석', '출석체크', '퇴실', 'QR'],
-    '지각': ['늦음'],
-    '조퇴': ['일찍가기'],
-    '외출': ['나갔다', '나감'],
-    '결석': ['빠짐', '못감'],
+    '출결': ['출석', '출석체크', '퇴실', 'QR', '출결', '출결신청', '출결 신청'],
+    '지각': ['늦음', '지각', '지각신청', '지각 신청'],
+    '조퇴': ['일찍가기', '조퇴', '조퇴신청', '조퇴 신청'],
+    '외출': ['나갔다', '나감', '외출', '외출신청', '외출 신청'],
+    '결석': ['빠짐', '못감', '결석', '결석신청', '결석 신청'],
     
     # 공결/병결 관련
-    '공결': ['공가', '공식결석', '예비군', '민방위'],
-    '병결': ['병가', '병원', '진료', '치료'],
+    '공결': ['공가', '공식결석', '예비군', '민방위', '공결신청', '공결 신청', '공결'],
+    '병결': ['병가', '병원', '진료', '치료', '병결', '병결신청', '병결 신청'],
     
     # 수업/학습 관련
-    '수업': ['강의', '교육', '학습'],
-    'VOD': ['영상', '녹화', '온라인강의'],
-    'LMS': ['학습관리', '이러닝'],
+    '수업': ['강의', '교육', '학습', '수업', '수업신청', '수업 신청'],
+    'VOD': ['영상', '녹화', '온라인강의', 'VOD', 'VOD신청', 'VOD 신청'],
+    'LMS': ['학습관리', '이러닝', 'LMS', 'LMS신청', 'LMS 신청'],
     
     # 화상 도구 관련
-    '줌': ['zoom', 'ZOOM', '화상'],
-    '디스코드': ['단체채팅', '채팅방'],
+    '줌': ['zoom', 'ZOOM', '화상', '줌', '줌신청', '줌 신청'],
+    '디스코드': ['단체채팅', '채팅방', '디스코드', '디스코드신청', '디스코드 신청'],
     
     # 지원금 관련
-    '훈련장려금': ['장려금', '지원금', '수당', '단위기간'],
+    '훈련장려금': ['장려금', '지원금', '수당', '단위기간', '훈련장려금', '훈련장려금신청', '훈련장려금 신청'],
     
     # 서류 관련
-    '증빙서류': ['증명서', '확인서', '서류', '면접확인서']
+    '증빙서류': ['증명서', '확인서', '서류', '면접확인서', '증빙서류', '증빙서류신청', '증빙서류 신청'],
 }
 
 # 역방향 매핑 생성
@@ -91,56 +91,53 @@ for main_keyword, related_keywords in KEYWORD_MAPPINGS.items():
         if keyword not in REVERSE_KEYWORD_MAPPINGS:
             REVERSE_KEYWORD_MAPPINGS[keyword] = set()
         REVERSE_KEYWORD_MAPPINGS[keyword].add(main_keyword)
+        
+stop_words = {
+    "있다", "없다", "하다", "이다", "되다", "어떻다", 
+    "무엇", "무슨", "어떤", "이런", "저런", "그런",
+    "은", "는", "이", "가", "을", "를", "의", "로", "으로",
+    "에서", "부터", "까지", "에게", "한테",
+    "어떻게", "어디서", "언제", "누가", "왜",
+    "합니다", "입니다", "습니다", "니다",
+    "하나요", "인가요", "될까요", "할까요",
+    "어케", "해야", "다녀왔는데",
+    "요합니다", "방법을" 
+}
 
 def extract_keywords(query: str) -> List[str]:
-    """문장에서 주요 키워드 추출"""
-    # 불용어 리스트
-    stop_words = {
-        "있다", "없다", "하다", "이다", "되다", "어떻다", 
-        "무엇", "무슨", "어떤", "이런", "저런", "그런",
-        "은", "는", "이", "가", "을", "를", "의", "로", "으로",
-        "에서", "부터", "까지", "에게", "한테",
-        "어떻게", "어디서", "언제", "누가", "왜",
-        "합니다", "입니다", "습니다", "니다",
-        "하나요", "인가요", "될까요", "할까요",
-        "어케", "해야", "다녀왔는데"
-    }
-    
     # 특수문자 제거 및 소문자 변환
-    query = re.sub(r'[^\w\s]', ' ', query.lower())
+    query = re.sub(r'[^\w\s]', ' ', query)
+    
+    # 단어 분리 전 불필요한 조사/어미 제거
+    query = re.sub(r'(을|를|이|가|의|에|로|으로|합니다|습니다|니다)$', '', query)
     
     # 단어 분리
     words = [word.strip() for word in query.split() if word.strip()]
     
     # 결과 키워드 리스트
-    keywords = set()  # 중복 방지를 위해 set 사용
+    keywords = set()
     
     for word in words:
         # 불용어 제거
         if word in stop_words:
             continue
-        
-        # 1. 직접 매핑 확인
-        if word in KEYWORD_MAPPINGS:
-            keywords.add(word)
+            
+        # 짧은 단어 제거 (1글자)
+        if len(word) < 2:
             continue
             
-        # 2. 역방향 매항 확인
-        if word in REVERSE_KEYWORD_MAPPINGS:
-            keywords.update(REVERSE_KEYWORD_MAPPINGS[word])
-            continue
-            
-        # 3. 부분 문자열 매칭
-        for main_keyword, related_terms in KEYWORD_MAPPINGS.items():
-            if any(term in word for term in [main_keyword] + related_terms):
+        # 키워드 매핑 확인
+        mapped = False
+        for main_keyword, variations in KEYWORD_MAPPINGS.items():
+            if word in variations or word == main_keyword:
                 keywords.add(main_keyword)
+                mapped = True
                 break
-        
-        # 4. 매핑되지 않은 2글자 이상 단어 추가
-        if len(word) >= 2:
+                
+        # 매핑되지 않은 단어도 추가
+        if not mapped:
             keywords.add(word)
     
-    print(f"Final keywords: {list(keywords)}")  # 디버깅용
     return list(keywords)
 
 @router.get("/search", response_model=List[FAQResponse])
@@ -161,13 +158,23 @@ def search_faqs(
         return []
     
     # 검색 조건 생성
+    # 검색 조건 생성
     conditions = []
     for keyword in keywords:
+        # 정확한 매칭
         conditions.extend([
             FAQ.keywords.ilike(f"%{keyword}%"),
             FAQ.question.ilike(f"%{keyword}%"),
             FAQ.answer.ilike(f"%{keyword}%")
         ])
+        
+        # 부분 매칭 (키워드가 2글자 이상인 경우)
+        if len(keyword) >= 2:
+            conditions.extend([
+                FAQ.keywords.ilike(f"%{keyword[:-1]}%"),
+                FAQ.question.ilike(f"%{keyword[:-1]}%"),
+                FAQ.answer.ilike(f"%{keyword[:-1]}%")
+            ])
     print(f"Search conditions: {conditions}")  
     
     # 검색 실행
