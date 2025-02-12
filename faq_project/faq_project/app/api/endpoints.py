@@ -146,10 +146,6 @@ def search_faqs(
     db: Session = Depends(get_db),
     threshold: float = 0.3
 ):
-    # 디버깅을 위한 데이터베이스 확인 로그 추가
-    total_faqs = db.query(FAQ).count()
-    print(f"Total FAQs in database: {total_faqs}")
-    
     """문장으로 FAQ를 검색합니다."""
     print(f"Received query: {query}")  
     
