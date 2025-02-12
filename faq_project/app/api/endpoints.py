@@ -143,7 +143,7 @@ def extract_keywords(query: str) -> List[str]:
     print(f"Final keywords: {list(keywords)}")  # 디버깅용
     return list(keywords)
 
-@router.get("/search/", response_model=List[FAQResponse])
+@router.get("/search", response_model=List[FAQResponse])
 def search_faqs(
     query: str, 
     db: Session = Depends(get_db),
