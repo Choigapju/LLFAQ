@@ -150,11 +150,11 @@ def search_faqs(
     threshold: float = 0.3
 ):
     """문장으로 FAQ를 검색합니다."""
-    print(f"Received query: {query}")  # 입력된 쿼리 확인
+    print(f"Received query: {query}")  
     
     # 검색어에서 키워드 추출
     keywords = extract_keywords(query)
-    print(f"Extracted keywords: {keywords}")  # 추출된 키워드 확인
+    print(f"Extracted keywords: {keywords}")  
     
     if not keywords:
         print("No keywords extracted")
@@ -168,11 +168,11 @@ def search_faqs(
             FAQ.question.ilike(f"%{keyword}%"),
             FAQ.answer.ilike(f"%{keyword}%")
         ])
-    print(f"Search conditions: {conditions}")  # 검색 조건 확인
+    print(f"Search conditions: {conditions}")  
     
     # 검색 실행
     faqs = db.query(FAQ).filter(or_(*conditions)).all()
-    print(f"Initial search results: {len(faqs)}")  # 첫 검색 결과 수 확인
+    print(f"Initial search results: {len(faqs)}")  
     
     # 관련성 점수 계산 및 정렬
     scored_faqs = []
@@ -196,14 +196,14 @@ def search_faqs(
         
         # 전체 키워드 수로 정규화
         score = score / len(keywords)
-        print(f"FAQ {faq.id} score: {score}")  # 각 FAQ의 점수 확인
+        print(f"FAQ {faq.id} score: {score}")  
         
         if score >= threshold:
             scored_faqs.append((score, faq))
     
     # 점수순으로 정렬
     scored_faqs.sort(key=lambda x: x[0], reverse=True)
-    print(f"Final results count: {len(scored_faqs)}")  # 최종 결과 수 확인
+    print(f"Final results count: {len(scored_faqs)}")  
     
     return [faq for score, faq in scored_faqs]
 
