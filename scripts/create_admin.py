@@ -10,6 +10,7 @@ def create_admin(email: str, username: str, password: str):
     db = SessionLocal()
     try:
         # 기존 사용자 확인
+        # chgju@likelion.net, PW: itlab
         db_user = db.query(User).filter(
             (User.email == email) | (User.username == username)
         ).first()
