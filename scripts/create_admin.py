@@ -35,11 +35,41 @@ def create_admin(email: str, username: str, password: str):
     finally:
         db.close()
 
+def reset_admin_password(email: str, new_password: str):
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        if user:
+            user.hashed_password = get_password_hash(new_password)
+            db.commit()
+            print(f"Password reset successfully for {email}")
+        else:
+            print(f"User with email {email} not found")
+    finally:
+        db.close()
+
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python create_admin.py EMAIL USERNAME PASSWORD")
+    if len(sys.argv) < 2:
+        print("Usage:")
+        print("Create admin: python create_admin.py create EMAIL USERNAME PASSWORD")
+        print("Reset password: python create_admin.py reset EMAIL NEW_PASSWORD")
         sys.exit(1)
     
-    email, username, password = sys.argv[1:]
-    Base.metadata.create_all(bind=engine)
-    create_admin(email, username, password)
+    command = sys.argv[1]
+    
+    if command == "create":
+        if len(sys.argv) != 5:
+            print("Usage: python create_admin.py create EMAIL USERNAME PASSWORD")
+            sys.exit(1)
+        email, username, password = sys.argv[2:]
+        Base.metadata.create_all(bind=engine)
+        create_admin(email, username, password)
+    
+    elif command == "reset":
+        if len(sys.argv) != 4:
+            print("Usage: python create_admin.py reset EMAIL NEW_PASSWORD")
+            sys.exit(1)
+        email, new_password = sys.argv[2:]
+        reset_admin_password(email, new_password)
+    else:
+        print("Unknown command. Use 'create' or 'reset'")

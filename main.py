@@ -1,6 +1,7 @@
 # main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from app.core.config import get_settings
 from app.api.endpoints import router as faq_router
 from app.api.auth import router as auth_router
@@ -23,12 +24,18 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3001",  # 개발 환경 프론트엔드 URL
-        "https://your-production-frontend-domain.com",  # 운영 환경 도메인 추가 가능
+        "http://localhost:3001",
+        "https://your-frontend-domain.com"
     ],
     allow_credentials=True,
-    allow_methods=["*"],  # GET, POST 등 모든 HTTP 메서드 허용
-    allow_headers=["*"],  # 모든 헤더 허용
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 추가: 강제 HTTPS 비활성화 (Render에서는 이미 HTTPS 처리)
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=["*"]
 )
 
 # API 라우터들
