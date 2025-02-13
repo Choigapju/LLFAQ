@@ -3,23 +3,20 @@ from sqlalchemy.orm import Session
 from typing import List
 from app.database.session import get_db
 from app.models.comment import Comment
-from app.models.user import User
 from app.schemas.comment import CommentCreate, Comment as CommentSchema, CommentUpdate
-from app.core.security import get_current_user, get_current_admin_user
 
 router = APIRouter()
 
 @router.post("/", response_model=CommentSchema)
 async def create_comment(
     comment: CommentCreate,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """댓글 작성"""
     db_comment = Comment(
         content=comment.content,
-        user_id=current_user.id,
         faq_id=comment.faq_id
+        # user_id 필드 제거
     )
     db.add(db_comment)
     db.commit()
@@ -45,16 +42,12 @@ async def read_comments(
 async def update_comment(
     comment_id: int,
     comment_update: CommentUpdate,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """댓글 수정 (작성자 또는 관리자만 가능)"""
+    """댓글 수정"""
     db_comment = db.query(Comment).filter(Comment.id == comment_id).first()
     if not db_comment:
         raise HTTPException(status_code=404, detail="Comment not found")
-    
-    if db_comment.user_id != current_user.id and not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Permission denied")
     
     db_comment.content = comment_update.content
     db.commit()
@@ -64,16 +57,12 @@ async def update_comment(
 @router.delete("/{comment_id}")
 async def delete_comment(
     comment_id: int,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """댓글 삭제 (작성자 또는 관리자만 가능)"""
+    """댓글 삭제"""
     db_comment = db.query(Comment).filter(Comment.id == comment_id).first()
     if not db_comment:
         raise HTTPException(status_code=404, detail="Comment not found")
-    
-    if db_comment.user_id != current_user.id and not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Permission denied")
     
     db_comment.is_deleted = True
     db.commit()
