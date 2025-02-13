@@ -50,9 +50,6 @@ def reset_admin_password(email: str, new_password: str):
         db.close()
 
 if __name__ == "__main__":
-    # 임시로 직접 비밀번호 리셋 코드 추가
-    reset_admin_password("chgju@likelion.net", "itlab")
-    
     if len(sys.argv) < 2:
         print("Usage:")
         print("Create admin: python create_admin.py create EMAIL USERNAME PASSWORD")
