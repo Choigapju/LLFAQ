@@ -4,6 +4,7 @@ from sqlalchemy import or_
 from typing import List
 import csv
 import re
+import os
 from app.database.session import get_db
 from app.models.faq import FAQ
 from app.schemas.faq import FAQCreate, FAQResponse
@@ -16,25 +17,70 @@ router = APIRouter()
 def load_csv_data(db: Session = Depends(get_db)):
     """CSV 파일에서 데이터를 로드하여 데이터베이스에 저장합니다."""
     try:
-        with open('faq_data.csv', 'r', encoding='utf-8') as file:
+        # 프로젝트 루트 디렉토리 기준으로 파일 경로 설정
+        file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'faq_data.csv')
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail=f"CSV file not found at {file_path}")
+
+        with open(file_path, 'r', encoding='utf-8') as file:
             csv_reader = csv.DictReader(file)
+            
+            # CSV 헤더 검증
+            required_columns = {'category', 'keywords', 'question', 'answer'}
+            if not all(col in csv_reader.fieldnames for col in required_columns):
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"CSV must contain columns: {', '.join(required_columns)}"
+                )
+
+            rows_processed = 0
+            errors = []
+
             for row in csv_reader:
                 try:
+                    # 데이터 유효성 검사
+                    if not all(row.get(field, '').strip() for field in ['question', 'answer']):
+                        errors.append(f"Row {rows_processed + 1}: Missing required fields")
+                        continue
+
                     category = float(row['category']) if row['category'].strip() else 0.0
+                    
                     db_faq = FAQ(
                         category=category,
-                        keywords=row['keywords'],
-                        question=row['question'],
-                        answer=row['answer']
+                        keywords=row['keywords'].strip(),
+                        question=row['question'].strip(),
+                        answer=row['answer'].strip()
                     )
                     db.add(db_faq)
+                    rows_processed += 1
+
                 except ValueError as e:
-                    print(f"Error processing row: {row}, Error: {str(e)}")
+                    errors.append(f"Row {rows_processed + 1}: Invalid category format - {str(e)}")
                     continue
-            db.commit()
-        return {"message": "CSV 데이터가 성공적으로 로드되었습니다."}
+                except Exception as e:
+                    errors.append(f"Row {rows_processed + 1}: {str(e)}")
+                    continue
+
+            if rows_processed > 0:
+                db.commit()
+
+            result = {
+                "message": f"CSV 데이터 처리 완료: {rows_processed}개 행 처리됨",
+                "processed": rows_processed
+            }
+            
+            if errors:
+                result["errors"] = errors
+
+            return result
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        db.rollback()  # 에러 발생 시 트랜잭션 롤백
+        raise HTTPException(
+            status_code=500,
+            detail=f"CSV 로드 중 오류 발생: {str(e)}"
+        )
 
 @router.get("/", response_model=List[FAQResponse])
 def get_all_faqs(
