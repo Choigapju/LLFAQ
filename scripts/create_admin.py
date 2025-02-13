@@ -51,13 +51,16 @@ def reset_admin_password(email: str, new_password: str):
 
 if __name__ == "__main__":
     print("Starting password reset...")
+    print(f"Database URL: {engine.url}")
     db = SessionLocal()
     try:
         # 먼저 사용자가 존재하는지 확인
         user = db.query(User).filter(User.email == "chgju@likelion.net").first()
         if user:
             print(f"Found user: {user.email}")
+            print(f"Current password hash: {user.hashed_password}")
             user.hashed_password = get_password_hash("itlab")
+            print(f"New password hash: {user.hashed_password}")
             db.commit()
             print("Password reset completed successfully")
         else:
@@ -74,6 +77,7 @@ if __name__ == "__main__":
             print("New admin user created successfully")
     except Exception as e:
         print(f"Error during operation: {str(e)}")
+        print(f"Error type: {type(e)}")
     finally:
         db.close()
     
