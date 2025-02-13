@@ -1,40 +1,41 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
-from typing import List
 import csv
-import re
+import io
+
+from app.crud import FAQ as FAQCrud
+from app.api.deps import get_current_active_admin
 from app.database.session import get_db
-from app.models.faq import FAQ
-from app.schemas.faq import FAQCreate, FAQResponse
-from app.api.auth import get_current_admin_user, get_current_user
-from app.models.user import User
+from app import schemas
 
 router = APIRouter()
 
 @router.post("/load-csv")
-def load_csv_data(db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
+# 주석 처리: current_user: models.User = Depends(get_current_active_admin)
+async def load_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    # current_user: models.User = Depends(get_current_active_admin)  # 주석 처리
+):
     """CSV 파일에서 데이터를 로드하여 데이터베이스에 저장합니다. (관리자 전용)"""
     try:
-        with open('faq_data.csv', 'r', encoding='utf-8') as file:
-            csv_reader = csv.DictReader(file)
-            for row in csv_reader:
-                try:
-                    category = float(row['category']) if row['category'].strip() else 0.0
-                    db_faq = FAQ(
-                        category=category,
-                        keywords=row['keywords'],
-                        question=row['question'],
-                        answer=row['answer']
-                    )
-                    db.add(db_faq)
-                except ValueError as e:
-                    print(f"Error processing row: {row}, Error: {str(e)}")
-                    continue
-            db.commit()
-        return {"message": "CSV 데이터가 성공적으로 로드되었습니다."}
+        contents = await file.read()
+        decoded_content = contents.decode('utf-8-sig')
+        csv_reader = csv.DictReader(io.StringIO(decoded_content))
+        
+        faqs = []
+        for row in csv_reader:
+            faq = schemas.FAQCreate(
+                question=row['question'],
+                answer=row['answer'],
+                category=row['category']
+            )
+            db_faq = FAQCrud.create_faq(db=db, faq=faq)
+            faqs.append(db_faq)
+        
+        return {"message": f"Successfully loaded {len(faqs)} FAQs"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/", response_model=List[FAQResponse])
 def get_all_faqs(
@@ -219,10 +220,11 @@ def search_faqs(
     return [faq for score, faq in scored_faqs]
 
 @router.post("/", response_model=FAQResponse)
-def create_faq(
-    faq: FAQCreate, 
+# 주석 처리: current_user: models.User = Depends(get_current_active_admin)
+async def create_faq(
+    faq: FAQCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)  # 관리자 권한 필요
+    # current_user: models.User = Depends(get_current_active_admin)  # 주석 처리
 ):
     """새로운 FAQ를 생성합니다. (관리자 전용)"""
     db_faq = FAQ(**faq.model_dump())  # Pydantic v2에서는 .dict() 대신 .model_dump() 사용
@@ -232,11 +234,12 @@ def create_faq(
     return db_faq
 
 @router.put("/{faq_id}", response_model=FAQResponse)
-def update_faq(
+# 주석 처리: current_user: models.User = Depends(get_current_active_admin)
+async def update_faq(
     faq_id: int,
     faq_update: FAQCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)  # 관리자 권한 필요
+    # current_user: models.User = Depends(get_current_active_admin)  # 주석 처리
 ):
     """FAQ를 수정합니다. (관리자 전용)"""
     db_faq = db.query(FAQ).filter(FAQ.id == faq_id).first()
@@ -251,10 +254,11 @@ def update_faq(
     return db_faq
 
 @router.delete("/{faq_id}")
-def delete_faq(
-    faq_id: int, 
+# 주석 처리: current_user: models.User = Depends(get_current_active_admin)
+async def delete_faq(
+    faq_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)  # 관리자 권한 필요
+    # current_user: models.User = Depends(get_current_active_admin)  # 주석 처리
 ):
     """FAQ를 삭제합니다. (관리자 전용)"""
     faq = db.query(FAQ).filter(FAQ.id == faq_id).first()

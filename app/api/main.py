@@ -1,5 +1,4 @@
-# app/api/main.py
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, FastAPI
 from sqlalchemy.orm import Session
 from typing import List
 from pydantic import BaseModel
@@ -8,6 +7,32 @@ from app.models.notice import Notice
 from app.models.faq import FAQ
 from app.schemas.faq import FAQResponse
 from app.schemas.notice import Notice as NoticeSchema
+from fastapi.security import OAuth2PasswordBearer
+
+app = FastAPI(
+    title="FAQ API 문서",
+    description="FAQ 관리를 위한 API 문서입니다.",
+    version="1.0.0",
+    openapi_tags=[
+        {
+            "name": "auth",
+            "description": "인증 관련 API"
+        },
+        {
+            "name": "users",
+            "description": "사용자 관련 API"
+        },
+        {
+            "name": "faqs",
+            "description": "FAQ 관련 API"
+        }
+    ],
+    swagger_ui_init_oauth={
+        "usePkceWithAuthorizationCodeGrant": True,
+    }
+)
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/token")
 
 router = APIRouter()
 

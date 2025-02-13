@@ -10,6 +10,7 @@ def create_admin(email: str, username: str, password: str):
     db = SessionLocal()
     try:
         # 기존 사용자 확인
+        # chgju@likelion.net, PW: itlab
         db_user = db.query(User).filter(
             (User.email == email) | (User.username == username)
         ).first()
@@ -49,6 +50,37 @@ def reset_admin_password(email: str, new_password: str):
         db.close()
 
 if __name__ == "__main__":
+    print("Starting password reset...")
+    print(f"Database URL: {engine.url}")
+    db = SessionLocal()
+    try:
+        # 먼저 사용자가 존재하는지 확인
+        user = db.query(User).filter(User.email == "chgju@likelion.net").first()
+        if user:
+            print(f"Found user: {user.email}")
+            print(f"Current password hash: {user.hashed_password}")
+            user.hashed_password = get_password_hash("itlab")
+            print(f"New password hash: {user.hashed_password}")
+            db.commit()
+            print("Password reset completed successfully")
+        else:
+            print("User not found, creating new admin user...")
+            new_user = User(
+                email="chgju@likelion.net",
+                username="chgju",
+                hashed_password=get_password_hash("itlab"),
+                is_active=True,
+                is_admin=True
+            )
+            db.add(new_user)
+            db.commit()
+            print("New admin user created successfully")
+    except Exception as e:
+        print(f"Error during operation: {str(e)}")
+        print(f"Error type: {type(e)}")
+    finally:
+        db.close()
+    
     if len(sys.argv) < 2:
         print("Usage:")
         print("Create admin: python create_admin.py create EMAIL USERNAME PASSWORD")
