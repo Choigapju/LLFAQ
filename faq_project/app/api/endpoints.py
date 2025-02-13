@@ -7,14 +7,14 @@ import re
 from app.database.session import get_db
 from app.models.faq import FAQ
 from app.schemas.faq import FAQCreate, FAQResponse
-from app.api.auth import get_current_admin_user, get_current_user
-from app.models.user import User
+# from app.api.auth import get_current_admin_user, get_current_user
+# from app.models.user import User
 
 router = APIRouter()
 
 @router.post("/load-csv")
-def load_csv_data(db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
-    """CSV 파일에서 데이터를 로드하여 데이터베이스에 저장합니다. (관리자 전용)"""
+def load_csv_data(db: Session = Depends(get_db)):
+    """CSV 파일에서 데이터를 로드하여 데이터베이스에 저장합니다."""
     try:
         with open('faq_data.csv', 'r', encoding='utf-8') as file:
             csv_reader = csv.DictReader(file)
@@ -55,7 +55,6 @@ def get_faqs_by_category(
     faqs = db.query(FAQ).filter(FAQ.category == category).all()
     return faqs
 
-# 키워드 매핑 정의
 KEYWORD_MAPPINGS = {
     # 출결 관련
     '출결': ['출석', '출석체크', '퇴실', 'QR', '출결', '출결신청', '출결 신청'],
@@ -162,7 +161,6 @@ def search_faqs(
         return []
     
     # 검색 조건 생성
-    # 검색 조건 생성
     conditions = []
     for keyword in keywords:
         # 정확한 매칭
@@ -221,11 +219,10 @@ def search_faqs(
 @router.post("/", response_model=FAQResponse)
 def create_faq(
     faq: FAQCreate, 
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)  # 관리자 권한 필요
+    db: Session = Depends(get_db)
 ):
-    """새로운 FAQ를 생성합니다. (관리자 전용)"""
-    db_faq = FAQ(**faq.model_dump())  # Pydantic v2에서는 .dict() 대신 .model_dump() 사용
+    """새로운 FAQ를 생성합니다."""
+    db_faq = FAQ(**faq.model_dump())
     db.add(db_faq)
     db.commit()
     db.refresh(db_faq)
@@ -235,10 +232,9 @@ def create_faq(
 def update_faq(
     faq_id: int,
     faq_update: FAQCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)  # 관리자 권한 필요
+    db: Session = Depends(get_db)
 ):
-    """FAQ를 수정합니다. (관리자 전용)"""
+    """FAQ를 수정합니다."""
     db_faq = db.query(FAQ).filter(FAQ.id == faq_id).first()
     if not db_faq:
         raise HTTPException(status_code=404, detail="FAQ not found")
@@ -253,10 +249,9 @@ def update_faq(
 @router.delete("/{faq_id}")
 def delete_faq(
     faq_id: int, 
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)  # 관리자 권한 필요
+    db: Session = Depends(get_db)
 ):
-    """FAQ를 삭제합니다. (관리자 전용)"""
+    """FAQ를 삭제합니다."""
     faq = db.query(FAQ).filter(FAQ.id == faq_id).first()
     if not faq:
         raise HTTPException(status_code=404, detail="FAQ not found")
