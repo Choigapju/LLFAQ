@@ -50,8 +50,32 @@ def reset_admin_password(email: str, new_password: str):
         db.close()
 
 if __name__ == "__main__":
-    # 임시로 직접 비밀번호 리셋 코드 추가
-    reset_admin_password("chgju@likelion.net", "itlab")
+    print("Starting password reset...")
+    db = SessionLocal()
+    try:
+        # 먼저 사용자가 존재하는지 확인
+        user = db.query(User).filter(User.email == "chgju@likelion.net").first()
+        if user:
+            print(f"Found user: {user.email}")
+            user.hashed_password = get_password_hash("itlab")
+            db.commit()
+            print("Password reset completed successfully")
+        else:
+            print("User not found, creating new admin user...")
+            new_user = User(
+                email="chgju@likelion.net",
+                username="chgju",
+                hashed_password=get_password_hash("itlab"),
+                is_active=True,
+                is_admin=True
+            )
+            db.add(new_user)
+            db.commit()
+            print("New admin user created successfully")
+    except Exception as e:
+        print(f"Error during operation: {str(e)}")
+    finally:
+        db.close()
     
     if len(sys.argv) < 2:
         print("Usage:")
