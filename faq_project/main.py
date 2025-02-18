@@ -22,8 +22,9 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3001",
-        "https://your-frontend-domain.com"
+        "http://localhost:3000",  # React 개발 서버
+        "http://localhost:3001",  # 다른 로컬 포트
+        "https://lion-helper-v2.vercel.app"  # Vercel 프로덕션 도메인
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -40,7 +41,6 @@ app.include_router(main_router, prefix=settings.API_V1_STR + "/main", tags=["mai
 app.include_router(faq_router, prefix=settings.API_V1_STR + "/faqs", tags=["faqs"])
 app.include_router(comment_router, prefix=settings.API_V1_STR + "/comments", tags=["comments"])
 app.include_router(notice_router, prefix=settings.API_V1_STR + "/notices", tags=["notices"])
-# auth_router 라인 제거됨
 
 @app.get("/")
 async def root():
