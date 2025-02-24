@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 class FAQBase(BaseModel):
-    category: float
+    category: str
     keywords: str
     question: str
     answer: str

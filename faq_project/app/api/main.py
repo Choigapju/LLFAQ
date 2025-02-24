@@ -14,7 +14,7 @@ router = APIRouter()
 class MainPageResponse(BaseModel):
     recent_notices: List[NoticeSchema]
     popular_faqs: List[FAQResponse]
-    categories: List[float]
+    categories: List[str]
 
     class Config:
         from_attributes = True

@@ -44,7 +44,7 @@ def load_csv_data(db: Session = Depends(get_db)):
                         errors.append(f"Row {rows_processed + 1}: Missing required fields")
                         continue
 
-                    category = float(row['category']) if row['category'].strip() else 0.0
+                    category = row['category'].strip() if row['category'].strip() else '기타'
                     
                     db_faq = FAQ(
                         category=category,
@@ -94,7 +94,7 @@ def get_all_faqs(
 
 @router.get("/category/{category}", response_model=List[FAQResponse])
 def get_faqs_by_category(
-    category: float, 
+    category: str, 
     db: Session = Depends(get_db)
 ):
     """카테고리별 FAQ를 조회합니다."""
