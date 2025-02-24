@@ -3,10 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from app.core.config import get_settings
 from app.api.endpoints import router as faq_router
-from app.api.comment import router as comment_router
 from app.api.notice import router as notice_router
-from app.api.main import router as main_router
-from app.api.user import router as user_router  # 새로 추가
+from app.api.user import router as user_router
 from app.api.search import router as search_router
 from app.database.session import Base, engine
 import os
@@ -39,9 +37,7 @@ app.add_middleware(
 )
 
 # API 라우터들
-app.include_router(main_router, prefix=settings.API_V1_STR + "/main", tags=["main"])
 app.include_router(faq_router, prefix=settings.API_V1_STR + "/faqs", tags=["faqs"])
-app.include_router(comment_router, prefix=settings.API_V1_STR + "/comments", tags=["comments"])
 app.include_router(notice_router, prefix=settings.API_V1_STR + "/notices", tags=["notices"])
 app.include_router(user_router, prefix=settings.API_V1_STR + "/users", tags=["users"])
 app.include_router(search_router, prefix=settings.API_V1_STR + "/search", tags=["search"])
