@@ -1,17 +1,37 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 from typing import List
 import csv
 import re
 import os
-from app.database.session import get_db
+from app.database.session import get_db, Base, engine
 from app.models.faq import FAQ
 from app.schemas.faq import FAQCreate, FAQResponse
 # from app.api.auth import get_current_admin_user, get_current_user
 # from app.models.user import User
 
 router = APIRouter()
+
+@router.post("/reset-database", include_in_schema=False)  # Swagger UI에서 숨김
+async def reset_db_endpoint(db: Session = Depends(get_db)):
+    """데이터베이스 테이블을 재생성합니다."""
+    try:
+        # 기존 테이블들과의 의존성을 고려하여 삭제
+        with engine.connect() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS faqs CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS comments CASCADE"))
+            conn.commit()
+        
+        # 테이블 재생성
+        Base.metadata.create_all(bind=engine)
+        
+        return {"message": "Database tables reset successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to reset database: {str(e)}"
+        )
 
 @router.post("/load-csv")
 def load_csv_data(db: Session = Depends(get_db)):
